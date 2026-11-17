@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Syahwa.id</title>
+<meta name="theme-color" content="#0E5C46">
+<meta name="description" content="Syahwa.id, rumah keuangan keluarga: kasir Dapoer Abata, Celenganku, dan Alur Danaku">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon-192.png" type="image/png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Syahwa.id">
+<link rel="preconnect" href="https://script.google.com">
+<style>
+  html, body { margin: 0; height: 100%; background: #0E5C46; overflow: hidden; }
+  #app { position: fixed; inset: 0; width: 100%; height: 100%; border: 0; background: #F3F6F4;
+         padding-top: env(safe-area-inset-top); box-sizing: border-box; }
+  #splash { position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center;
+            justify-content: center; gap: 18px; background: #0E5C46; color: #fff; text-align: center;
+            font: 600 15px system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; transition: opacity .35s; z-index: 2; }
+  #splash img { width: 112px; height: 112px; border-radius: 26px; box-shadow: 0 8px 24px rgba(0,0,0,.25); }
+  #splash b { font-size: 22px; }
+  .bar { width: 140px; height: 4px; border-radius: 4px; background: rgba(255,255,255,.2); overflow: hidden; }
+  .bar i { display: block; width: 40%; height: 100%; background: #E2B54B; border-radius: 4px;
+           animation: jalan 1.1s ease-in-out infinite; }
+  @keyframes jalan { 0% { transform: translateX(-100%); } 100% { transform: translateX(260%); } }
+  @media (prefers-reduced-motion: reduce) { .bar i { animation: none; width: 100%; } }
+  #splash.hilang { opacity: 0; pointer-events: none; }
+  .btn { display: inline-block; padding: 12px 22px; border-radius: 12px; background: #E2B54B;
+         color: #0A4334; text-decoration: none; font-weight: 700; }
+  #offline { display: none; position: fixed; inset: 0; z-index: 3; background: #0E5C46; color: #fff;
+             font: 15px system-ui, sans-serif; text-align: center; padding: 60px 24px; box-sizing: border-box; }
+</style>
+</head>
+<body>
+<div id="splash">
+  <img src="icon-192.png" alt="">
+  <b>Syahwa.id</b>
+  <div>Membuka rumah keuangan keluarga…</div>
+  <div class="bar"><i></i></div>
+</div>
+<div id="offline">
+  <img src="icon-192.png" alt="" width="72" height="72" style="border-radius:18px">
+  <p><b>Tidak ada koneksi internet</b></p>
+  <p>Periksa sinyal atau data seluler, lalu coba lagi.</p>
+  <p><a class="btn" href="./">Coba lagi</a></p>
+</div>
+<!-- credentialless: dibuka tanpa akun Google yang sedang login di browser,
+     supaya tidak muncul "Maaf, saat ini tidak dapat membuka file" bila di HP ada beberapa akun Google.
+     Keamanan dijaga oleh PIN di dalam aplikasi. -->
+<iframe id="app" title="Syahwa.id" credentialless
+        allow="clipboard-read; clipboard-write; fullscreen"></iframe>
+<script>
+  // GANTI dengan URL aplikasi web Syahwa.id (berakhiran /exec) dari Apps Script > Terapkan.
+  var URL_APLIKASI = 'https://script.google.com/macros/s/AKfycbwP2qiFj-06rKJpE8Etp0kGxRhxtuKpsVASDrny3Cod8-PZMPL6HX4kVGwuhhULjmem/exec';
+
+  var frame = document.getElementById('app');
+  var splash = document.getElementById('splash');
+  function tutupSplash() { splash.classList.add('hilang'); }
+
+  if (!navigator.onLine) {
+    document.getElementById('offline').style.display = 'block';
+  } else {
+    frame.addEventListener('load', function () { setTimeout(tutupSplash, 400); });
+    setTimeout(tutupSplash, 15000);
+    frame.src = URL_APLIKASI;
+  }
+  window.addEventListener('offline', function () { document.getElementById('offline').style.display = 'block'; });
+  window.addEventListener('online', function () { document.getElementById('offline').style.display = 'none'; });
+
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('sw.js').catch(function () {});
+  }
+</script>
+</body>
+</html>
