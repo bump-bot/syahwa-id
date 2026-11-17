@@ -198,6 +198,9 @@ label.f input,label.f select,label.f textarea{padding:11px 12px;border:1px solid
 .tombol.emas{background:linear-gradient(135deg,#F6DC8F,#E2B54B);color:var(--hijau-gelap)}
 .tombol.kecil{padding:6px 10px;min-height:36px;font-size:13px}
 a.tombol{display:inline-flex;align-items:center;text-decoration:none}
+.tombol.hapus{background:#fff;color:var(--merah);border:1px solid #F5C2BC;box-shadow:none}
+.tombol.hapus:hover{background:var(--merah-muda)}
+.aksi-baris{display:flex;gap:6px;justify-content:flex-end;flex-wrap:wrap}
 .ikon-hapus{background:none;border:0;color:var(--merah);cursor:pointer;padding:8px;min-width:40px;min-height:40px;border-radius:8px}
 .ikon-hapus:hover{background:var(--merah-muda)}
 
@@ -306,15 +309,14 @@ dialog::backdrop{background:rgba(6,40,30,.6);backdrop-filter:blur(3px)}
   .stat .v{font-size:20px}
 }
 
+#cetak-struk{display:none}
+.struk-gambar{width:100%;height:auto;display:block;border:1px dashed #BBB;border-radius:8px;background:#fff}
+.dialog-isi{max-height:calc(100vh - 40px);overflow-y:auto}
 @media print{
-  @page{size:58mm auto;margin:2mm}
-  body{background:#fff}
-  body *{visibility:hidden}
-  dialog{position:static;margin:0;padding:0;border:0;max-width:none;width:auto}
-  dialog::backdrop{display:none}
-  .dialog-isi{padding:0}
-  #area-cetak,#area-cetak *{visibility:visible}
-  #area-cetak{position:absolute;left:0;top:0;width:54mm;border:0;padding:0;font-size:10.5px}
+  @page{margin:0}
+  html,body{background:#fff!important;height:auto!important;overflow:visible!important}
+  body>*:not(#cetak-struk){display:none!important}
+  #cetak-struk{display:block!important;width:58mm;box-sizing:border-box;padding:3mm 3mm 6mm;border:0;font-size:11px;line-height:1.4}
 }
 button.unit-kartu{text-align:left;cursor:pointer;font:inherit;color:inherit;width:100%}
 button.unit-kartu:hover{background:#fff}
@@ -456,6 +458,9 @@ button.unit-kartu:hover{background:#fff}
           </div>
         </div>
       </div>
+      <h2 class="judul-seksi">Riwayat transaksi di tanggal ini</h2>
+      <p class="redup kecil" style="margin:-6px 0 12px">Salah input? Tekan Hapus. Transaksi yang dihapus tidak dihitung lagi sebagai pendapatan, dan porsinya kembali ke sisa menu.</p>
+      <div id="riwayat-pos"></div>
     </div>
 
     <div id="k-menu" class="tumpuk" hidden>
@@ -614,15 +619,19 @@ button.unit-kartu:hover{background:#fff}
 <dialog id="dlg-struk" aria-labelledby="dlg-judul">
   <div class="dialog-isi">
     <h2 id="dlg-judul">Transaksi tersimpan</h2>
-    <div id="area-cetak" class="struk"></div>
+    <img id="area-cetak" class="struk-gambar" alt="Pratinjau struk">
     <div class="dialog-aksi">
       <button class="tombol" id="btn-cetak">Cetak struk</button>
-      <button class="tombol kedua" id="btn-wa">Kirim via WhatsApp</button>
+      <button class="tombol emas" id="btn-wa">Bagikan gambar (WhatsApp)</button>
+    </div>
+    <div class="dialog-aksi">
+      <button class="tombol kedua" id="btn-unduh">Simpan gambar</button>
       <button class="tombol kedua" id="btn-tutup">Transaksi baru</button>
     </div>
   </div>
 </dialog>
 
+<div id="cetak-struk" class="struk" aria-hidden="true"></div>
 <div id="toast" role="status" aria-live="polite"></div>
 
 <script>
@@ -640,7 +649,7 @@ const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&':'&am
 let TOKEN = '';
 try { TOKEN = localStorage.getItem('syahwa_token') || ''; } catch (_) {}
 function simpanToken(t) { TOKEN = t; try { t ? localStorage.setItem('syahwa_token', t) : localStorage.removeItem('syahwa_token'); } catch (_) {} }
-// GANTI dengan URL aplikasi web Syahwa.id (berakhiran /exec) dari Apps Script > Terapkan.
+// URL aplikasi web Syahwa.id (berakhiran /exec) dari Apps Script > Terapkan.
 var URL_APLIKASI = 'https://script.google.com/macros/s/AKfycbwP2qiFj-06rKJpE8Etp0kGxRhxtuKpsVASDrny3Cod8-PZMPL6HX4kVGwuhhULjmem/exec';
 function server(fn, ...args) {
   if (!URL_APLIKASI && window.google && google.script && google.script.run) {
@@ -985,13 +994,30 @@ async function muatKDash() {
         (k.harian.length ? '<div class="legend"><span><i style="background:var(--hijau)"></i>Penjualan</span><span><i style="background:var(--emas)"></i>Belanja</span></div>' + harian : '<p class="redup">Belum ada data.</p>') + '</div>' +
       '<div class="kartu tumpuk"><h2>Menu paling laku</h2>' + tabel([{t:'Menu'},{t:'Porsi',n:1},{t:'Nilai',n:1}], k.top.map(x => [esc(x.nama), num(x.qty), rp(x.nilai)]), 'Belum ada penjualan.') + '</div>' +
     '</div>' +
-    '<div class="tumpuk"><h2>Riwayat transaksi</h2>' + tabel(
-      [{t:'No'},{t:'Waktu'},{t:'Unit'},{t:'Item'},{t:'Total',n:1},{t:'Bayar'},{t:''},{t:''}],
-      k.transaksi.map((x, i) => [esc(x.no), tglIndo(x.tgl) + ' ' + x.jam, esc(x.unit), x.items.map(it => esc(it.nama) + ' ×' + it.qty).join(', '), rp(x.total), esc(x.metode),
-        '<button class="tombol kedua kecil" data-struk="' + i + '">Struk</button>', tombolHapus('K_Transaksi', x.no, x.no)]), 'Belum ada transaksi.') + '</div>';
+    '<div class="tumpuk"><h2>Riwayat transaksi</h2>' + tabelTransaksi(k.transaksi, 'Belum ada transaksi.') + '</div>';
+  pasangAksiTransaksi(box, k.transaksi, muatKDash);
+}
+
+/* ---------- riwayat transaksi (dipakai di Dashboard & Transaksi) ---------- */
+function tabelTransaksi(list, kosong) {
+  return tabel(
+    [{t:'No'},{t:'Waktu'},{t:'Unit'},{t:'Item'},{t:'Total',n:1},{t:'Bayar'},{t:''}],
+    list.map((x, i) => [esc(x.no), tglIndo(x.tgl) + ' ' + x.jam, esc(x.unit), x.items.map(it => esc(it.nama) + ' ×' + it.qty).join(', '), rp(x.total), esc(x.metode),
+      '<div class="aksi-baris"><button class="tombol kedua kecil" data-struk="' + i + '">Struk</button><button class="tombol hapus kecil" data-hapus-trx="' + i + '">Hapus</button></div>']),
+    kosong);
+}
+function pasangAksiTransaksi(box, list, sesudahHapus) {
   box.querySelectorAll('[data-struk]').forEach(b => b.addEventListener('click', () => {
-    const x = k.transaksi[+b.dataset.struk];
+    const x = list[+b.dataset.struk];
     tampilStruk(Object.assign({}, x, { usaha: INIT.usaha, alamat: INIT.alamat, catatan: INIT.catatanStruk }), 'Cetak ulang struk');
+  }));
+  box.querySelectorAll('[data-hapus-trx]').forEach(b => b.addEventListener('click', async () => {
+    const x = list[+b.dataset.hapusTrx];
+    const isi = x.items.map(it => '- ' + it.nama + ' x' + it.qty).join('\n');
+    if (!confirm('Hapus transaksi ' + x.no + '?\n\n' + isi + '\n\nTotal ' + rp(x.total) + ' tidak akan dihitung lagi sebagai pendapatan. Tindakan ini tidak bisa dibatalkan.')) return;
+    b.disabled = true; b.textContent = 'Menghapus…';
+    try { await panggil('hapus', 'K_Transaksi', x.no); toast('Transaksi ' + x.no + ' dihapus.'); sesudahHapus(); }
+    catch (_) { b.disabled = false; b.textContent = 'Hapus'; }
   }));
 }
 
@@ -1001,9 +1027,16 @@ async function muatPOS() {
   if (!$('#pos-tgl').value) $('#pos-tgl').value = INIT.today;
   $('#menu-grid').innerHTML = '<p class="memuat">Memuat menu…</p>';
   $('#cari-menu').value = '';
-  MENU_HARI = await panggil('getMenuHari', $('#pos-tgl').value, unit);
+  $('#riwayat-pos').innerHTML = '<p class="memuat">Memuat riwayat…</p>';
+  const tgl = $('#pos-tgl').value;
+  const [menu, k] = await Promise.all([panggil('getMenuHari', tgl, unit), panggil('getKasir', tgl, tgl, unit)]);
+  MENU_HARI = menu;
   gambarMenu();
   gambarKeranjang();
+  const box = $('#riwayat-pos');
+  box.innerHTML = tabelTransaksi(k.transaksi, 'Belum ada transaksi di tanggal ini.') +
+    (k.transaksi.length ? '<p class="redup kecil" style="margin-top:8px">' + k.transaksi.length + ' transaksi, total ' + rp(k.penjualan) + '</p>' : '');
+  pasangAksiTransaksi(box, k.transaksi, muatPOS);
 }
 function diKeranjang(nama) { return keranjang.filter(x => x.nama === nama).reduce((a, x) => a + x.qty, 0); }
 function sisaMenu(m) { return m.adaProduksi ? m.sisa - diKeranjang(m.nama) : null; }
@@ -1108,19 +1141,18 @@ $('#btn-bayar').addEventListener('click', async () => {
 });
 
 /* ---------- struk ---------- */
-let STRUK = null;
-function tampilStruk(s, judul) {
-  STRUK = s;
-  $('#dlg-judul').textContent = judul;
+let STRUK = null, STRUK_BLOB = null;
+function tglStruk(s) { const [y, m, d] = s.tgl.split('-'); return d + '/' + m + '/' + y + ' ' + (s.jam || ''); }
+
+/* Struk untuk dicetak (teks, lebar 58 mm) */
+function strukHTML(s) {
   const jmlItem = s.items.reduce((a, x) => a + x.qty, 0);
-  const [y, m, d] = s.tgl.split('-');
-  $('#area-cetak').innerHTML =
-    '<div class="tengah tebal besar">' + esc(s.usaha) + '</div>' +
+  return '<div class="tengah tebal besar">' + esc(s.usaha) + '</div>' +
     '<div class="tengah">' + esc(s.unit) + '</div>' +
     '<div class="tengah">' + esc(s.alamat) + '</div>' +
     '<div class="garis"></div>' +
     '<div class="baris"><span>No</span><span>' + esc(s.no) + '</span></div>' +
-    '<div class="baris"><span>Tanggal</span><span>' + d + '/' + m + '/' + y + ' ' + esc(s.jam) + '</span></div>' +
+    '<div class="baris"><span>Tanggal</span><span>' + tglStruk(s) + '</span></div>' +
     '<div class="garis"></div>' +
     s.items.map(x => '<div>' + esc(x.nama) + '</div><div class="baris"><span>&nbsp;' + x.qty + ' x ' + num(x.harga) + '</span><span>' + num(x.sub) + '</span></div>').join('') +
     '<div class="garis"></div>' +
@@ -1130,16 +1162,100 @@ function tampilStruk(s, judul) {
     '<div class="baris"><span>Kembali</span><span>' + rp(s.kembali) + '</span></div>' +
     '<div class="garis"></div>' +
     '<div class="tengah">' + esc(s.catatan || 'Terima kasih') + '</div>';
+}
+
+/* Struk sebagai gambar (lebar 384 titik = kertas thermal 58 mm) */
+function strukKanvas(s) {
+  const W = 384, P = 18, SKALA = 2;
+  const ukur = document.createElement('canvas').getContext('2d');
+  const huruf = (uk, tebal) => (tebal ? 'bold ' : '') + uk + 'px "Courier New", Courier, monospace';
+  const bungkus = (teks, font, lebar) => {
+    ukur.font = font;
+    const kata = String(teks).split(/\s+/), baris = [];
+    let b = '';
+    kata.forEach(k => { const coba = b ? b + ' ' + k : k; if (ukur.measureText(coba).width > lebar && b) { baris.push(b); b = k; } else b = coba; });
+    if (b) baris.push(b);
+    return baris;
+  };
+  const ops = [];
+  const tengah = (t, uk, tebal) => bungkus(t, huruf(uk, tebal), W - P * 2).forEach(l => ops.push({ j: 'c', t: l, uk, tebal }));
+  const kiri = (t, uk, tebal) => bungkus(t, huruf(uk, tebal), W - P * 2).forEach(l => ops.push({ j: 'l', t: l, uk, tebal }));
+  const kk = (a, b, uk, tebal) => ops.push({ j: 'lr', a, b, uk, tebal });
+  const garis = () => ops.push({ j: 'g' });
+  const jmlItem = s.items.reduce((a, x) => a + x.qty, 0);
+
+  tengah(s.usaha, 30, true);
+  tengah(s.unit, 19);
+  tengah(s.alamat, 17);
+  garis();
+  kk('No', s.no, 18); kk('Tanggal', tglStruk(s), 18);
+  garis();
+  s.items.forEach(x => { kiri(x.nama, 19, true); kk('  ' + x.qty + ' x ' + num(x.harga), num(x.sub), 18); });
+  garis();
+  kk('Jumlah item', String(jmlItem), 18);
+  kk('TOTAL', rp(s.total), 24, true);
+  kk('Bayar (' + s.metode + ')', rp(s.bayar), 18);
+  kk('Kembali', rp(s.kembali), 18);
+  garis();
+  tengah(s.catatan || 'Terima kasih', 18);
+
+  const tinggiOp = o => o.j === 'g' ? 18 : Math.round(o.uk * 1.45);
+  const H = P * 2 + ops.reduce((a, o) => a + tinggiOp(o), 0);
+  const c = document.createElement('canvas');
+  c.width = W * SKALA; c.height = H * SKALA;
+  const x = c.getContext('2d');
+  x.scale(SKALA, SKALA);
+  x.fillStyle = '#FFFFFF'; x.fillRect(0, 0, W, H);
+  x.fillStyle = '#000000'; x.textBaseline = 'middle';
+  let y = P;
+  ops.forEach(o => {
+    const h = tinggiOp(o), tgh = y + h / 2;
+    if (o.j === 'g') {
+      x.setLineDash([6, 4]); x.strokeStyle = '#000'; x.lineWidth = 1.5;
+      x.beginPath(); x.moveTo(P, tgh); x.lineTo(W - P, tgh); x.stroke(); x.setLineDash([]);
+    } else {
+      x.font = huruf(o.uk, o.tebal);
+      if (o.j === 'c') { x.textAlign = 'center'; x.fillText(o.t, W / 2, tgh); }
+      else if (o.j === 'l') { x.textAlign = 'left'; x.fillText(o.t, P, tgh); }
+      else { x.textAlign = 'left'; x.fillText(o.a, P, tgh); x.textAlign = 'right'; x.fillText(o.b, W - P, tgh); }
+    }
+    y += h;
+  });
+  return c;
+}
+
+function tampilStruk(s, judul) {
+  STRUK = s; STRUK_BLOB = null;
+  $('#dlg-judul').textContent = judul;
+  const c = strukKanvas(s);
+  $('#area-cetak').src = c.toDataURL('image/jpeg', 0.92);
+  c.toBlob(b => { STRUK_BLOB = b; }, 'image/jpeg', 0.92);
+  $('#cetak-struk').innerHTML = strukHTML(s);
   $('#dlg-struk').showModal();
+}
+function fileStruk() {
+  return STRUK_BLOB ? new File([STRUK_BLOB], 'Struk-' + STRUK.no + '.jpg', { type: 'image/jpeg' }) : null;
+}
+function unduhStruk() {
+  const f = fileStruk(); if (!f) return;
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(f); a.download = f.name;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 4000);
 }
 $('#btn-cetak').addEventListener('click', () => window.print());
 $('#btn-tutup').addEventListener('click', () => $('#dlg-struk').close());
-$('#btn-wa').addEventListener('click', () => {
-  const s = STRUK; if (!s) return;
-  const teks = '*' + s.usaha + '*\n' + s.unit + '\n' + s.alamat + '\n\nNo: ' + s.no + '\nTanggal: ' + tglIndo(s.tgl) + ' ' + s.jam + '\n\n' +
-    s.items.map(x => x.nama + '\n  ' + x.qty + ' x ' + num(x.harga) + ' = ' + num(x.sub)).join('\n') +
-    '\n\n*TOTAL: ' + rp(s.total) + '*\nBayar (' + s.metode + '): ' + rp(s.bayar) + '\nKembali: ' + rp(s.kembali) + '\n\n' + (s.catatan || 'Terima kasih');
-  window.open('https://wa.me/?text=' + encodeURIComponent(teks), '_blank');
+$('#btn-unduh').addEventListener('click', () => { unduhStruk(); toast('Gambar struk disimpan.'); });
+$('#btn-wa').addEventListener('click', async () => {
+  const f = fileStruk();
+  if (!f) { toast('Gambar struk masih disiapkan, coba lagi.', true); return; }
+  if (navigator.canShare && navigator.canShare({ files: [f] })) {
+    try { await navigator.share({ files: [f], title: 'Struk ' + STRUK.no, text: STRUK.usaha + ' ' + STRUK.no }); }
+    catch (e) { if (e && e.name !== 'AbortError') toast('Gagal membagikan gambar.', true); }
+  } else {
+    unduhStruk();
+    toast('Perangkat ini belum bisa berbagi langsung. Gambar struk sudah disimpan, lampirkan di WhatsApp.', true);
+  }
 });
 
 /* ---------- formulir kasir ---------- */
