@@ -386,7 +386,7 @@ button.unit-kartu:hover{background:#fff}
     <a class="menu-item" id="link-emas" href="#" target="_blank" rel="noopener"><span class="ikon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 19l3-7h8l3 7z"/><path d="M8 12l3-7h8l3 7h-6"/></svg></span><span class="teks"><b>Spreadsheet emas</b><small>Data asli tabungan emas</small></span></a>
     <button class="menu-item" id="btn-keluar"><span class="ikon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4M10 17l-5-5 5-5M5 12h12"/></svg></span><span class="teks"><b>Keluar</b><small>Kunci aplikasi</small></span></button>
   </nav>
-  <p class="versi">Syahwa.id versi 17.11.2026-5</p>
+  <p class="versi">Syahwa.id versi 18.11.2026-6</p>
 </aside>
 <div class="tirai" id="tirai"></div>
 <div class="utama">
@@ -556,6 +556,16 @@ button.unit-kartu:hover{background:#fff}
         <label class="f">Nilai sekarang (Rp)<input name="nilai" type="number" min="0" step="any" inputmode="numeric" required></label>
         <label class="f">Tanggal<input name="tgl" type="date"></label>
         <label class="f">Catatan<input name="catatan"></label>
+        <label class="f">Catat juga di Alur Danaku?
+          <select name="alur" id="cel-alur">
+            <option value="">Tidak</option>
+            <option value="masuk">Ya, sebagai pemasukan</option>
+            <option value="tabung">Ya, sebagai setoran tabungan</option>
+          </select>
+        </label>
+        <label class="f" id="cel-kat-w" hidden>Jenis pemasukan<select name="kategoriAlur" id="cel-kat"></select></label>
+        <label class="f" id="cel-jml-w" hidden>Jumlah dicatat di Alur Danaku (Rp)<input name="jumlahAlur" id="cel-jml" type="number" min="0" step="any" inputmode="numeric"></label>
+        <p class="lebar redup kecil" id="cel-alur-ket" hidden></p>
         <button class="tombol">Simpan simpanan</button>
         <button type="button" class="tombol kedua" id="btn-batal-cel" hidden>Batal ubah</button>
       </form>
@@ -1339,7 +1349,7 @@ $('#f-prod').elements.nama.addEventListener('change', e => { const h = HARGA_MEN
 let CEL = null;
 async function muatCelengan(segar) {
   const c = await panggil('getCelengan', !!segar);
-  CEL = c;
+  CEL = c; aturAlurCel(true);
   const e = c.emas;
   const jenis = ['Uang Tunai', 'Tabungan Bank', 'Aset', 'Lainnya'].filter(j => c.per[j]);
   $('#isi-celengan').innerHTML =
@@ -1365,11 +1375,36 @@ async function muatCelengan(segar) {
     const x = CEL.items[+b.dataset.ubah], f = $('#f-cel');
     f.elements.id.value = x.id; f.elements.jenis.value = x.jenis; f.elements.nama.value = x.nama; f.elements.lokasi.value = x.lokasi;
     f.elements.nilai.value = x.nilai; f.elements.tgl.value = INIT.today; f.elements.catatan.value = x.catatan;
+    f.dataset.nilaiLama = x.nilai; aturAlurCel(true);
     $('#judul-f-cel').textContent = 'Ubah simpanan: ' + x.nama; $('#btn-batal-cel').hidden = false;
     f.scrollIntoView({ behavior: 'smooth', block: 'center' }); f.elements.nilai.focus();
   }));
 }
-function resetFormCel() { $('#f-cel').reset(); $('#f-cel').elements.id.value = ''; $('#f-cel').elements.tgl.value = INIT.today; $('#judul-f-cel').textContent = 'Tambah simpanan'; $('#btn-batal-cel').hidden = true; }
+function resetFormCel() { $('#f-cel').reset(); $('#f-cel').elements.id.value = ''; $('#f-cel').dataset.nilaiLama = ''; $('#f-cel').elements.tgl.value = INIT.today; $('#judul-f-cel').textContent = 'Tambah simpanan'; $('#btn-batal-cel').hidden = true; aturAlurCel(true); }
+/* Catat juga di Alur Danaku: tampilkan kolom yang perlu dan isi jumlahnya otomatis */
+function aturAlurCel(isiUlang) {
+  const f = $('#f-cel'), mode = f.elements.alur.value;
+  $('#cel-kat-w').hidden = mode !== 'masuk';
+  $('#cel-jml-w').hidden = !mode;
+  $('#cel-alur-ket').hidden = !mode;
+  const kat = (CEL && CEL.katMasuk && CEL.katMasuk.length) ? CEL.katMasuk : ['Gaji', 'Pemasukan Lain'];
+  if (!$('#cel-kat').options.length || isiUlang) {
+    const lama = $('#cel-kat').value;
+    $('#cel-kat').innerHTML = kat.map(k => '<option>' + esc(k) + '</option>').join('');
+    if (lama && kat.indexOf(lama) >= 0) $('#cel-kat').value = lama;
+  }
+  const baru = +f.elements.nilai.value || 0, lama = +f.dataset.nilaiLama || 0;
+  const usul = f.dataset.nilaiLama ? Math.max(0, baru - lama) : baru;
+  if (!$('#cel-jml').dataset.manual) $('#cel-jml').value = usul || '';
+  $('#cel-alur-ket').textContent = mode === 'masuk'
+    ? 'Akan tercatat sebagai dana MASUK di Alur Danaku.'
+    : mode === 'tabung' ? 'Akan tercatat sebagai dana KELUAR jenis "Setor Tabungan": uang pindah dari dompet ke tabungan.' : '';
+  if (f.dataset.nilaiLama && mode) $('#cel-alur-ket').textContent += ' Saat mengubah nilai, jumlahnya otomatis selisih kenaikannya; boleh diganti.';
+}
+$('#cel-alur').addEventListener('change', () => aturAlurCel(false));
+$('#f-cel').elements.nilai.addEventListener('input', () => aturAlurCel(false));
+$('#cel-jml').addEventListener('input', () => { $('#cel-jml').dataset.manual = '1'; });
+$('#f-cel').addEventListener('reset', () => { $('#cel-jml').dataset.manual = ''; });
 pasangForm('#f-cel', 'saveCelengan', () => { resetFormCel(); muatCelengan(); });
 $('#btn-batal-cel').addEventListener('click', resetFormCel);
 $('#btn-segar-emas').addEventListener('click', () => { toast('Membaca harga emas terbaru…'); muatCelengan(true); });
